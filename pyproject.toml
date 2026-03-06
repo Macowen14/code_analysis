@@ -11,6 +11,8 @@ dependencies = [
     "langchain-ollama>=1.0.1",
     "langchain-tavily>=0.2.17",
     "langgraph>=1.0.10",
+    "pathspec>=1.0.4",
     "python-dotenv>=1.2.2",
+    "rich>=13.0.0",
     "tavily-python>=0.7.22",
 ]

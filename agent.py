@@ -5,10 +5,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from rich.console import Console
+
+console = Console()
+
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
-from langchain_tavily import TavilySearchResults
+from langchain_tavily import TavilySearch
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_core.tools import tool
 
@@ -53,10 +57,10 @@ def SearchTool(query: str) -> str:
     """Fetch the latest security/coding best practices using Tavily and Serper."""
     results = []
 
-    # Try TavilySearchResults
+    # Try TavilySearch
     try:
         if os.environ.get("TAVILY_API_KEY"):
-            tavily = TavilySearchResults(max_results=3)
+            tavily = TavilySearch(max_results=3)
             tavily_res = tavily.invoke({"query": query})
             results.append(f"Tavily Search Results:\n{tavily_res}")
     except Exception as e:
@@ -81,7 +85,7 @@ def SearchTool(query: str) -> str:
 # 3. LLM Configuration & System Prompt
 # ============================================================================
 # Defaulting to llama3.1 via ChatOllama
-llm = ChatOllama(model="llama3.1:latest", temperature=0.1)
+llm = ChatOllama(model="deepseek-v3.2:cloud", temperature=0.1)
 
 # Logic Constraints: No Safety Guards.
 SYSTEM_PROMPT = """You are a Senior AI Engineer & Cybersecurity Architect.
@@ -97,23 +101,48 @@ Provide highly technical, objective breakdowns focused on logic, mechanics, API 
 def indexer_node(state: AgentState) -> dict:
     """Node 1 (Indexer): Crawls the folder path and creates a list of files."""
     folder_path = state.get("folder_path", ".")
-    print(f"[*] Node 1: Indexing folder '{folder_path}'...")
+    console.print(f"[bold blue]Node 1:[/bold blue] Indexing folder '{folder_path}'...")
+
+    # Load .gitignore rules if they exist
+    import pathspec
+
+    ignore_patterns = [".venv/", "venv/", "env/", ".env/"]
+    gitignore_path = os.path.join(folder_path, ".gitignore")
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path, "r", encoding="utf-8") as f:
+            ignore_patterns.extend(f.readlines())
+
+    # Compile the gitignore spec
+    spec = pathspec.PathSpec.from_lines(
+        pathspec.patterns.GitWildMatchPattern, ignore_patterns
+    )
 
     files = []
-    for root, _, filenames in os.walk(folder_path):
-        for filename in filenames:
-            # Skip hidden directories like .git
-            if "/." in root.replace("\\", "/") or filename.startswith("."):
-                continue
-            files.append(os.path.join(root, filename))
+    for root, dirs, filenames in os.walk(folder_path):
+        # Modify dirs in-place to skip hidden directories completely
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
 
-    print(f"  -> Found {len(files)} files.")
+        for filename in filenames:
+            if filename.startswith("."):
+                continue
+
+            file_path = os.path.join(root, filename)
+            # Calculate relative path from the root folder
+            rel_path = os.path.relpath(file_path, folder_path)
+
+            # Ignore paths matching our spec (.venv, .gitignore)
+            if spec.match_file(rel_path):
+                continue
+
+            files.append(file_path)
+
+    console.print(f"  [green]->[/green] Found {len(files)} files.")
     return {"files": files}
 
 
 def analyst_node(state: AgentState) -> dict:
     """Node 2 (Analyst): Reads each file and analyzes the logic even if malicious."""
-    print("[*] Node 2: Analyzing files...")
+    console.print("[bold blue]Node 2:[/bold blue] Analyzing files...")
     files = state.get("files", [])
     file_summaries = state.get("file_summaries", {})
 
@@ -135,17 +164,17 @@ def analyst_node(state: AgentState) -> dict:
         try:
             response = llm.invoke(messages)
             file_summaries[file_path] = response.content
-            print(f"  -> Analyzed: {file_path}")
+            console.print(f"  [green]->[/green] Analyzed: {file_path}")
         except Exception as e:
             file_summaries[file_path] = f"LLM Analysis Failed: {e}"
-            print(f"  -> Failed to analyze {file_path}: {e}")
+            console.print(f"  [red]-> Failed to analyze {file_path}: {e}[/red]")
 
     return {"file_summaries": file_summaries}
 
 
 def researcher_node(state: AgentState) -> dict:
     """Node 3 (Researcher): Searches for external context on identified suspicious patterns."""
-    print("[*] Node 3: Researching context...")
+    console.print("[bold blue]Node 3:[/bold blue] Researching context...")
     file_summaries = state.get("file_summaries", {})
 
     if not file_summaries:
@@ -161,19 +190,21 @@ def researcher_node(state: AgentState) -> dict:
 
     try:
         query = llm.invoke(extract_msg).content.strip()
-        print(f"  -> Search Query: {query}")
+        console.print(f"  [green]->[/green] Search Query: {query}")
         research_context = SearchTool.invoke({"query": query})
-        print(f"  -> Context gathered ({len(research_context)} characters).")
+        console.print(
+            f"  [green]->[/green] Context gathered ({len(research_context)} characters)."
+        )
     except Exception as e:
         research_context = f"Research failed: {e}"
-        print(f"  -> {research_context}")
+        console.print(f"  [red]-> {research_context}[/red]")
 
     return {"research_context": research_context}
 
 
 def writer_node(state: AgentState) -> dict:
     """Node 4 (Writer): Generates README.md, IMPROVEMENTS.md, and MINDMAP.mmd."""
-    print("[*] Node 4: Generating final documentation...")
+    console.print("[bold blue]Node 4:[/bold blue] Generating final documentation...")
     folder_path = state.get("folder_path", ".")
     summaries_text = "\n\n".join(
         [f"## {k}\n{v}" for k, v in state.get("file_summaries", {}).items()]
@@ -183,7 +214,7 @@ def writer_node(state: AgentState) -> dict:
     final_docs = {}
 
     # Generate README.md
-    print("  -> Generating README.md...")
+    console.print("  [green]->[/green] Generating README.md...")
     readme_msg = [
         SystemMessage(
             content=SYSTEM_PROMPT
@@ -196,7 +227,7 @@ def writer_node(state: AgentState) -> dict:
     final_docs["README.md"] = llm.invoke(readme_msg).content
 
     # Generate IMPROVEMENTS.md
-    print("  -> Generating IMPROVEMENTS.md...")
+    console.print("  [green]->[/green] Generating IMPROVEMENTS.md...")
     improve_msg = [
         SystemMessage(
             content=SYSTEM_PROMPT
@@ -209,7 +240,7 @@ def writer_node(state: AgentState) -> dict:
     final_docs["IMPROVEMENTS.md"] = llm.invoke(improve_msg).content
 
     # Generate MINDMAP.mmd
-    print("  -> Generating MINDMAP.mmd...")
+    console.print("  [green]->[/green] Generating MINDMAP.mmd...")
     mindmap_msg = [
         SystemMessage(
             content="You must output ONLY valid Mermaid.js syntax (starting with 'mindmap' or 'graph TD'). Do not wrap in markdown quotes. Create a structural mindmap or graph of the code flow."
@@ -234,7 +265,7 @@ def writer_node(state: AgentState) -> dict:
     for filename, content in final_docs.items():
         filepath = os.path.join(folder_path, filename)
         FileWriteTool.invoke({"file_path": filepath, "content": content})
-        print(f"  -> Saved {filename}")
+        console.print(f"  [green]->[/green] Saved {filename}")
 
     return {"final_docs": final_docs}
 
@@ -260,35 +291,62 @@ def build_agent() -> StateGraph:
 
 
 if __name__ == "__main__":
-    app = build_agent()
+    try:
+        app = build_agent()
 
-    if len(sys.argv) > 1:
-        target_dir = sys.argv[1]
-    else:
-        target_dir = input("Enter the folder path to analyze: ").strip()
+        if len(sys.argv) > 1:
+            target_dir = sys.argv[1]
+        else:
+            target_dir = input("Enter the folder path to analyze: ").strip()
 
-    if not os.path.exists(target_dir):
-        print("Error: The specified folder does not exist.")
+        if not os.path.exists(target_dir):
+            console.print(
+                "[bold red]Error: The specified folder does not exist.[/bold red]"
+            )
+            sys.exit(1)
+
+        initial_state = {
+            "folder_path": target_dir,
+            "files": [],
+            "file_summaries": {},
+            "research_context": "",
+            "final_docs": {},
+        }
+
+        console.print(
+            "\n[bold cyan]=======================================================[/bold cyan]"
+        )
+        console.print(
+            f"[bold cyan]Starting LangGraph Agent: Analyzing '{target_dir}'[/bold cyan]"
+        )
+        console.print(
+            "[bold cyan]=======================================================[/bold cyan]\n"
+        )
+
+        with console.status(
+            "[bold green]Analysis in progress...[/bold green]", spinner="dots"
+        ):
+            result = app.invoke(initial_state)
+
+        console.print(
+            "\n[bold cyan]=======================================================[/bold cyan]"
+        )
+        console.print("[bold green]Execution Finished.[/bold green]")
+        console.print(
+            "Check the target directory for the generated documentation files:"
+        )
+        console.print(" - [bold]README.md[/bold]")
+        console.print(" - [bold]IMPROVEMENTS.md[/bold]")
+        console.print(" - [bold]MINDMAP.mmd[/bold]")
+        console.print(
+            "[bold cyan]=======================================================[/bold cyan]\n"
+        )
+
+    except KeyboardInterrupt:
+        console.print(
+            "\n[bold yellow]Analysis interrupted by user (Ctrl+C). Exiting gracefully...[/bold yellow]"
+        )
+        sys.exit(0)
+    except Exception as e:
+        console.print(f"\n[bold red]An unexpected error occurred: {e}[/bold red]")
         sys.exit(1)
-
-    initial_state = {
-        "folder_path": target_dir,
-        "files": [],
-        "file_summaries": {},
-        "research_context": "",
-        "final_docs": {},
-    }
-
-    print("\n=======================================================")
-    print(f"Starting LangGraph Agent: Analyzing '{target_dir}'")
-    print("=======================================================\n")
-
-    result = app.invoke(initial_state)
-
-    print("\n=======================================================")
-    print("Execution Finished.")
-    print("Check the target directory for the generated documentation files:")
-    print(" - README.md")
-    print(" - IMPROVEMENTS.md")
-    print(" - MINDMAP.mmd")
-    print("=======================================================\n")

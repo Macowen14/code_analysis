@@ -1,59 +1,216 @@
-# LangGraph Code Analysis Agent
+# LangGraph Code Analysis Agent - Technical Architecture Documentation
 
-A local AI agent built with LangChain and LangGraph for automated, unrestricted code analysis and threat intelligence research. 
+## System Overview
 
-This agent crawls a target directory, comprehensively analyzes every file (including potential malware or exploits) using local LLMs (Ollama), and automatically researches suspicious patterns using Tavily or Google Serper APIs.
+A LangGraph-based autonomous code analysis system designed for **unrestricted cybersecurity research** in controlled environments. This tool implements a zero-safety-guard approach to analyze potentially malicious code, exploits, and vulnerabilities without AI content filtering restrictions.
 
-## Features
+## Core Architecture
 
-1. **Unrestricted Analysis:** Instructed with zero safety guards, designed specifically for analyzing code logic, mechanics, API hooks, and vulnerabilities in a controlled cybersecurity research environment.
-2. **Local LLM Execution:** Uses `llama3.1` via Ollama by default, ensuring code never leaves your local machine unless querying specific APIs for threat intellect.
-3. **Automated Threat Research:** Extracts suspicious terms from the analysis and fetches external threat intelligence/context using integrated search APIs.
-4. **Comprehensive Documentation Generation:** Automatically outputs:
-   - `README.md`: A holistic summary of the analyzed codebase architecture.
-   - `IMPROVEMENTS.md`: Focused recommendations on hardening, detection, and security best practices.
-   - `MINDMAP.mmd`: A Mermaid.js graph visualizing the code flow and structural relationships.
+### System Components
 
-## Prerequisites
+#### 1. **Workflow Engine (LangGraph)**
+- **Type**: Directed Acyclic Graph (DAG) with sequential execution
+- **Nodes**: 4-stage pipeline with state propagation
+- **State Management**: TypedDict-based structured state flow
 
-Ensure you have [uv](https://github.com/astral-sh/uv) installed to manage the environment, or a standard Python 3.10+ setup. Also, ensure you have [Ollama](https://ollama.com/) installed and running locally with the `llama3.1` model pulled:
-
-```bash
-ollama pull llama3.1
+#### 2. **Processing Pipeline**
+```
+Directory → Indexer → Analyst → Researcher → Writer
+                    ↓          ↓
+               Local LLM   External APIs
 ```
 
-## Installation
+### Node Specifications
 
-1. Switch to this directory and activate the environment:
-   ```bash
-   uv venv
-   source .venv/bin/activate
-   ```
-2. Install the required dependencies using `uv` (already defined in `pyproject.toml`):
-   ```bash
-   uv sync
-   ```
-   *Alternatively, if not using uv: `pip install -r requirements.txt` or equivalent.*
+#### **Node 1: Indexer**
+- **Function**: File system crawler with `.git` exclusion
+- **Mechanics**: Non-recursive directory scanning
+- **Output**: List of file paths for analysis
 
-3. Set up your API Keys for the search function by editing or creating a `.env` file in the root directory:
-   ```env
-   # Choose either Tavily or Serper (or provide both):
-   TAVILY_API_KEY=tvly-your-api-key-here
-   SERPER_API_KEY=your-serper-api-key-here
-   ```
+#### **Node 2: Analyst**
+- **Core**: Local LLM analysis via Ollama (llama3.1 model)
+- **Processing**: Per-file sequential analysis
+- **Capabilities**: Code pattern recognition, vulnerability detection, logic analysis
 
-## Usage
+#### **Node 3: Researcher**
+- **Function**: External threat intelligence gathering
+- **APIs**: Tavily Search API (primary) or Google Serper API (fallback)
+- **Trigger**: Suspicious pattern extraction from Analyst node
+- **Output**: Consolidated research context
 
-Run the agent by executing `agent.py`. You can either pass the target directory as an argument or enter it when prompted.
+#### **Node 4: Writer**
+- **Function**: Multi-format documentation generation
+- **Outputs**: Three distinct markdown reports with different analytical focuses
 
-```bash
-python agent.py /path/to/suspect/code_folder
+## Technical Specifications
+
+### Dependencies & Requirements
+
+#### **Core Frameworks**
+- **Python**: ≥3.10
+- **LangChain Ecosystem**: Core, Community, Ollama, Tavily integrations
+- **LangGraph**: ≥1.0.10 for stateful multi-agent orchestration
+
+#### **Search Integrations**
+- **Tavily-Python**: ≥0.7.22 (AI-optimized search)
+- **Google-Search-Results**: ≥2.4.2 (traditional search fallback)
+
+#### **Utility Libraries**
+- **pathspec**: ≥1.0.4 (gitignore-style pattern matching)
+- **python-dotenv**: ≥1.2.2 (environment management)
+- **rich**: ≥13.0.0 (terminal formatting)
+
+### State Management Structure
+
+```python
+class AgentState(TypedDict):
+    folder_path: str          # Target directory path
+    files: List[str]         # Discovered file paths
+    file_summaries: Dict[str, str]  # LLM analysis per file
+    research_context: str    # External search results
+    final_docs: Dict[str, str]  # Generated documentation
 ```
 
-**What to expect:**
-1. **Node 1 (Indexer):** The agent indexes all files in the given directory (ignoring hidden `.git`/etc folders).
-2. **Node 2 (Analyst):** It reads and analyzes every file individually.
-3. **Node 3 (Researcher):** Key terms are extracted from the analysis and searched online for recent security context.
-4. **Node 4 (Writer):** The final analytical reports (`README.md`, `IMPROVEMENTS.md`, and `MINDMAP.mmd`) are dropped straight into the target directory.
+## Functional Capabilities
 
-*Note: This agent intentionally bypasses standard safety guardrails for educational and research purposes. Do not run this recursively on massive file systems without expecting long processing times or high resource utilization.*
+### 1. **Unrestricted Code Analysis**
+- Bypasses standard AI safety guardrails
+- Processes all file types without content filtering
+- Local LLM processing for sensitive code isolation
+
+### 2. **Threat Intelligence Integration**
+- Automated suspicious pattern extraction
+- Dual-search strategy (Tavily + Google Serper)
+- Contextual vulnerability research
+
+### 3. **Multi-format Reporting**
+- Technical architecture documentation
+- Vulnerability and exploit analysis
+- Dependency and supply chain risk assessment
+
+## Security Architecture
+
+### **Intentional Design Choices**
+1. **No Safety Guards**: Explicit removal of content filtering for malware analysis
+2. **Local Processing**: Ollama integration keeps sensitive code analysis offline
+3. **Controlled External Calls**: Search APIs only triggered by specific patterns
+
+### **Potential Attack Vectors**
+
+#### **1. Input Handling Risks**
+- Path traversal vulnerabilities in directory targeting
+- Symlink following without validation
+- Resource exhaustion via recursive scanning
+
+#### **2. External API Risks**
+- Information disclosure via search queries
+- API key exposure through `.env` files
+- Rate limiting absence for external services
+
+#### **3. Local Execution Risks**
+- Model prompt injection vulnerabilities
+- File overwrite without confirmation
+- Environment pollution from analyzed code
+
+### **Defensive Gaps**
+- No sandboxing or isolation mechanisms
+- Missing input sanitization for file paths
+- Absence of output validation
+- No authentication for Ollama endpoint
+
+## Operational Requirements
+
+### **Environment Setup**
+```bash
+# Prerequisites
+Python 3.10+
+Ollama running locally with llama3.1 model
+UV package manager
+
+# Installation
+uv sync
+cp .env.example .env  # Configure API keys
+```
+
+### **API Configuration**
+- **Tavily API**: `tvly-*` format key in `.env`
+- **Google Serper API**: Alternative search provider
+- **Ollama**: Local HTTP endpoint (default: http://localhost:11434)
+
+### **Execution Flow**
+1. **Initialization**: Environment validation and API key loading
+2. **Indexing**: Target directory scanning with pattern exclusion
+3. **Analysis**: Sequential file processing via local LLM
+4. **Research**: External API calls for threat intelligence
+5. **Documentation**: Report generation in target directory
+
+## Threat Model
+
+### **Intended Use Cases**
+- Malware reverse engineering in isolated environments
+- Exploit code analysis without content restrictions
+- Vulnerability research with external context gathering
+- Supply chain attack simulation and analysis
+
+### **Containment Requirements**
+- Network segmentation for external API calls
+- File system permissions limiting
+- Resource quota enforcement
+- Activity monitoring and logging
+
+## Deployment Considerations
+
+### **Network Requirements**
+- Outbound HTTP/HTTPS for search APIs
+- Local network access for Ollama endpoint
+- No inbound requirements
+
+### **Storage Requirements**
+- Read access to target analysis directory
+- Write access for report generation
+- Temporary storage for LLM processing
+
+### **Compute Requirements**
+- Sufficient RAM for llama3.1 model inference
+- CPU resources for file processing
+- Network bandwidth for external research
+
+## Limitations & Constraints
+
+### **Technical Limitations**
+- Hardcoded to llama3.1 model (no parameterization)
+- Non-recursive directory scanning only
+- Sequential file processing (no parallelism)
+- Limited error recovery mechanisms
+
+### **Security Constraints**
+- No authentication for any components
+- Missing input validation layers
+- Absence of audit trail generation
+- No rate limiting or throttling
+
+## Development Roadmap
+
+### **Planned Enhancements**
+1. **Security Hardening**
+   - Input validation and sanitization
+   - Sandboxed execution environment
+   - Audit logging and activity monitoring
+
+2. **Functional Improvements**
+   - Parallel file processing
+   - Recursive directory scanning option
+   - Model parameterization support
+
+3. **Operational Features**
+   - Docker containerization
+   - CLI argument expansion
+   - Configuration file support
+
+## Disclaimer
+
+**WARNING**: This tool is designed exclusively for controlled cybersecurity research environments. It intentionally removes safety guardrails and should never be deployed in production systems or used with untrusted code without proper containment measures. External API calls may expose sensitive information to third-party services.
+
+---
+
+*This documentation generated by the LangGraph Code Analysis Agent v0.1.0*
