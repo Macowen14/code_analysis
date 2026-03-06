@@ -203,7 +203,7 @@ def researcher_node(state: AgentState) -> dict:
 
 
 def writer_node(state: AgentState) -> dict:
-    """Node 4 (Writer): Generates README.md, IMPROVEMENTS.md, and MINDMAP.mmd."""
+    """Node 4 (Writer): Generates README.md, IMPROVEMENTS.md, and mindmap.md."""
     console.print("[bold blue]Node 4:[/bold blue] Generating final documentation...")
     folder_path = state.get("folder_path", ".")
     summaries_text = "\n\n".join(
@@ -239,11 +239,14 @@ def writer_node(state: AgentState) -> dict:
     ]
     final_docs["IMPROVEMENTS.md"] = llm.invoke(improve_msg).content
 
-    # Generate MINDMAP.mmd
-    console.print("  [green]->[/green] Generating MINDMAP.mmd...")
+    # Generate mindmap.md
+    console.print("  [green]->[/green] Generating mindmap.md...")
     mindmap_msg = [
         SystemMessage(
-            content="You must output ONLY valid Mermaid.js syntax (starting with 'mindmap' or 'graph TD'). Do not wrap in markdown quotes. Create a structural mindmap or graph of the code flow."
+            content="""You must output ONLY valid Mermaid.js syntax (starting with 'mindmap' or 'graph TD').
+Create a structural mindmap or graph of the code flow.
+CRITICAL: If any node label contains special characters (like brackets [], parentheses (), colons :, spaces, etc.), you MUST wrap the label text in double quotes to prevent Mermaid syntax errors on GitHub.
+Example: node_id["Label with special: characters [like this]"]"""
         ),
         HumanMessage(content=summaries_text[:10000]),
     ]
@@ -259,7 +262,8 @@ def writer_node(state: AgentState) -> dict:
         if mindmap_content.endswith("```"):
             mindmap_content = mindmap_content[:-3]
 
-    final_docs["MINDMAP.mmd"] = mindmap_content.strip()
+    mindmap_content = mindmap_content.strip()
+    final_docs["mindmap.md"] = f"```mermaid\n{mindmap_content}\n```"
 
     # Securely write to disk
     for filename, content in final_docs.items():
@@ -337,7 +341,7 @@ if __name__ == "__main__":
         )
         console.print(" - [bold]README.md[/bold]")
         console.print(" - [bold]IMPROVEMENTS.md[/bold]")
-        console.print(" - [bold]MINDMAP.mmd[/bold]")
+        console.print(" - [bold]mindmap.md[/bold]")
         console.print(
             "[bold cyan]=======================================================[/bold cyan]\n"
         )
