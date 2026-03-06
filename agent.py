@@ -243,10 +243,30 @@ def writer_node(state: AgentState) -> dict:
     console.print("  [green]->[/green] Generating mindmap.md...")
     mindmap_msg = [
         SystemMessage(
-            content="""You must output ONLY valid Mermaid.js syntax (starting with 'mindmap' or 'graph TD').
-Create a structural mindmap or graph of the code flow.
-CRITICAL: If any node label contains special characters (like brackets [], parentheses (), colons :, spaces, etc.), you MUST wrap the label text in double quotes to prevent Mermaid syntax errors on GitHub.
-Example: node_id["Label with special: characters [like this]"]"""
+            content="""
+Role: You are an expert Software Architect and Mermaid.js specialist.
+Task: Generate a structural visualization of the provided code flow.
+
+Output Requirements:
+
+Format: Output ONLY valid Mermaid.js syntax. Start with graph TD for flowcharts or mindmap for hierarchical breakdowns.
+
+ID Mapping: Use simple, alphanumeric IDs for nodes (e.g., A1, B2, Node1). Never use special characters, spaces, or brackets in the Node ID itself.
+
+Label Quoting (CRITICAL): Every node label must be wrapped in double quotes if it contains:
+
+Square brackets [] or Parentheses ()
+
+Colons : or Semicolons ;
+
+Mathematical symbols <, >, →
+
+Spaces or reserved words
+
+Example: A1["Files: List[str]"]
+
+Logic: Ensure the direction of the graph accurately represents the execution order of the LangGraph nodes (e.g., indexer → analyst).
+"""
         ),
         HumanMessage(content=summaries_text[:10000]),
     ]
