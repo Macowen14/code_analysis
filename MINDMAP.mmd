@@ -5,11 +5,11 @@ graph TD
     A --> E[Workflow Execution]
     
     B --> B1[AgentState TypedDict]
-    B1 --> B2[folder_path: str]
-    B1 --> B3[files: List[str]]
-    B1 --> B4[file_summaries: Dict[str, str]]
-    B1 --> B5[research_context: str]
-    B1 --> B6[final_docs: Dict[str, str]]
+    B1 --> B2["folder_path: str"]
+    B1 --> B3["files: List[str]"]
+    B1 --> B4["file_summaries: Dict[str, str]"]
+    B1 --> B5["research_context: str"]
+    B1 --> B6["final_docs: Dict[str, str]"]
     
     C --> C1[FileReadTool]
     C1 --> C2[Reads files with UTF-8 encoding]
@@ -46,12 +46,12 @@ graph TD
     D16 --> D18[threat_report.md]
     D16 --> D19[executive_summary.md]
     
-    E --> E1[compile_graph()]
+    E --> E1["compile_graph()"]
     E1 --> E2[Creates StateGraph]
     E2 --> E3[Adds nodes in sequence]
-    E3 --> E4[indexer → analyst → researcher → writer]
+    E3 --> E4["indexer → analyst → researcher → writer"]
     
-    E --> E5[invoke_agent()]
+    E --> E5["invoke_agent()"]
     E5 --> E6[Entry point function]
     E6 --> E7[Validates folder path]
     E7 --> E8[Initializes AgentState]
