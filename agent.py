@@ -356,20 +356,46 @@ Focus ONLY on:
             pass
     mindmap_msg_content = """
 Role: You are an expert Software Architect and Mermaid.js specialist.
-Task: Generate a structural visualization of the provided code flow.
+Task: Generate a flowchart visualization of the provided project's code structure and execution flow.
 
-Output Requirements:
-Format: Output ONLY valid Mermaid.js syntax. You MUST use a flowchart. Start exactly with `graph TD` or `graph LR`. Do NOT use `mindmap`.
-ID Mapping: Use simple, alphanumeric IDs for nodes (e.g., A1, B2). Never use special characters, spaces, or brackets in the Node ID itself.
-Label Quoting: Every node label must be wrapped in double quotes. Example: A1["Files: List[str]"]
-Logic: Ensure the direction of the graph accurately represents the execution order of the LangGraph nodes or the hierarchy of the project components. Connect nodes using `-->`.
+OUTPUT FORMAT RULES (STRICT):
+1. Output ONLY raw Mermaid.js syntax. No backticks, no markdown, no explanation text.
+2. Start the output with exactly: graph LR
+3. Do NOT use 'mindmap', 'sequenceDiagram', or any other type.
+4. Use simple alphanumeric IDs only (A1, B2, C3). No spaces, slashes, dots, or special chars in IDs.
+5. Wrap ALL node labels in double quotes: A1["Label text"]
+6. Connect nodes using: -->
+7. Use subgraph blocks to group related nodes, keeping the chart wide not tall.
+
+REFERENCE EXAMPLE (use this exact style):
+
+graph LR
+    subgraph Input
+        A1["Entry Point"]
+    end
+    subgraph Processing
+        B1["Parser"]
+        B2["Validator"]
+        B3["Analyzer"]
+    end
+    subgraph Output
+        C1["Report Generator"]
+        C2["File Writer"]
+    end
+    A1 --> B1
+    B1 --> B2
+    B2 --> B3
+    B3 --> C1
+    C1 --> C2
+
+IMPORTANT: Use subgraphs to keep the chart readable. Group nodes horizontally, not vertically.
 """
 
     if existing_mindmap_content:
-        mindmap_msg_content += f"\n\nExisting MINDMAP.mmd:\n```mermaid\n{existing_mindmap_content}\n```\nIf the existing MINDMAP accurately reflects the code architecture and needs no updates, output the exact same existing MINDMAP.mmd content back exactly as provided."
+        mindmap_msg_content += f"\n\nExisting MINDMAP (update only if the code structure has changed):\n{existing_mindmap_content}\nIf no structural changes are needed, output the existing content exactly as-is."
 
     if writer_retries > 0:
-        mindmap_msg_content += "\n\nWARNING: Your previous attempt produced invalid Mermaid syntax. Please fix it. Ensure no quotes exist inside the quoted string, and only use alphanumeric IDs."
+        mindmap_msg_content += "\n\nWARNING: Your previous attempt was invalid. Fix all syntax errors. Only use alphanumeric node IDs, and wrap every label in double quotes."
 
     mindmap_msg = [
         SystemMessage(content=mindmap_msg_content),
@@ -377,19 +403,17 @@ Logic: Ensure the direction of the graph accurately represents the execution ord
     ]
     mindmap_content = invoke_llm_with_fallback(mindmap_msg)
 
-    if mindmap_content.startswith("```mermaid"):
-        mindmap_content = mindmap_content.replace("```mermaid", "", 1)
-        if mindmap_content.endswith("```"):
-            mindmap_content = mindmap_content[:-3]
-    elif mindmap_content.startswith("```"):
-        mindmap_content = mindmap_content.replace("```", "", 1)
-        if mindmap_content.endswith("```"):
-            mindmap_content = mindmap_content[:-3]
+    # Strip any backtick fencing the LLM may have added (robust multi-line strip)
+    import re as _re
 
+    mindmap_content = _re.sub(
+        r"^```(?:mermaid)?\s*", "", mindmap_content.strip(), flags=_re.IGNORECASE
+    )
+    mindmap_content = _re.sub(r"\s*```$", "", mindmap_content.strip())
     mindmap_content = mindmap_content.strip()
 
-    # Save mindmap output
-    final_docs["MINDMAP.mmd"] = f"```mermaid\n{mindmap_content}\n```"
+    # Save mindmap output — .mmd files must contain RAW Mermaid syntax, no backtick fences
+    final_docs["MINDMAP.mmd"] = mindmap_content
 
     # Optimization: if output mindmap equals existing, don't write.
     if existing_mindmap_content and mindmap_content in existing_mindmap_content:
