@@ -5,7 +5,7 @@ from langchain_community.utilities import GoogleSerperAPIWrapper
 from utils.security import SecurityLogger, BehavioralMonitor, sandboxed_path
 
 sec_logger = SecurityLogger()
-monitor = BehavioralMonitor()
+monitor = BehavioralMonitor(sec_logger)
 
 
 @tool
