@@ -75,6 +75,9 @@ def SearchTool(query: str) -> str:
     return "\n\n".join(results)
 
 
+# used to ensure the folder doesnt contain harmful files and also they dont exceed the size limit
+
+
 def preflight_check(folder_path: str):
     """
     Scans directory for incompatible files.
@@ -92,7 +95,7 @@ def preflight_check(folder_path: str):
                 # Using os.path.splitext to get the extension
                 _, ext = os.path.splitext(file)
 
-                reason = None
+                reason = None  # fail reason
 
                 # Check 1: Extension Check
                 if ext.lower() in dangerous_extensions:

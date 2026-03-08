@@ -333,9 +333,11 @@ if __name__ == "__main__":
         else:
             target_dir = input("Enter the folder path to analyze: ").strip()
 
+        target_dir = os.path.abspath(os.path.expanduser(target_dir))
+
         if not os.path.exists(target_dir):
             console.print(
-                "[bold red]Error: The specified folder does not exist.[/bold red]"
+                f"[bold red]Error: The specified folder '{target_dir}' does not exist.[/bold red]"
             )
             sys.exit(1)
 
