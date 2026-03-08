@@ -306,7 +306,15 @@ def writer_node(state: AgentState) -> dict:
         readme_msg = [
             SystemMessage(
                 content=SYSTEM_PROMPT
-                + "\nWrite a comprehensive README.md summarizing the architecture and functionality based on the code analysis."
+                + """\nWrite a comprehensive README.md for this project.
+Focus ONLY on:
+- Project overview & purpose
+- Architecture & key components
+- How to install and run the agent
+- Configuration options (environment variables, model settings)
+- Usage examples and workflow
+- Do NOT include any vulnerability details, CVEs, or security exploits. That belongs in IMPROVEMENTS.md.
+"""
             ),
             HumanMessage(
                 content=f"Code Summaries:\n{summaries_text[:10000]}\n\nExternal Research Context:\n{research_context}"
@@ -318,7 +326,14 @@ def writer_node(state: AgentState) -> dict:
         improve_msg = [
             SystemMessage(
                 content=SYSTEM_PROMPT
-                + "\nWrite an IMPROVEMENTS.md focusing on hardening, detection, and security best practices."
+                + """\nWrite an IMPROVEMENTS.md for this codebase.
+Focus ONLY on:
+- Identified vulnerabilities (with CVE references where relevant)
+- Detailed explanation of each risk
+- Concrete, actionable remediation steps and code snippets
+- Prioritized list of improvements (Critical → High → Medium)
+- Do NOT include project overview or usage instructions. That belongs in README.md.
+"""
             ),
             HumanMessage(
                 content=f"Code Summaries:\n{summaries_text[:10000]}\n\nExternal Research Context:\n{research_context}"
@@ -344,10 +359,10 @@ Role: You are an expert Software Architect and Mermaid.js specialist.
 Task: Generate a structural visualization of the provided code flow.
 
 Output Requirements:
-Format: Output ONLY valid Mermaid.js syntax. Start with graph TD for flowcharts or mindmap for hierarchical breakdowns.
+Format: Output ONLY valid Mermaid.js syntax. You MUST use a flowchart. Start exactly with `graph TD` or `graph LR`. Do NOT use `mindmap`.
 ID Mapping: Use simple, alphanumeric IDs for nodes (e.g., A1, B2). Never use special characters, spaces, or brackets in the Node ID itself.
 Label Quoting: Every node label must be wrapped in double quotes. Example: A1["Files: List[str]"]
-Logic: Ensure the direction of the graph accurately represents the execution order of the LangGraph nodes.
+Logic: Ensure the direction of the graph accurately represents the execution order of the LangGraph nodes or the hierarchy of the project components. Connect nodes using `-->`.
 """
 
     if existing_mindmap_content:
