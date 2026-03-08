@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import TypedDict, List, Dict, Any
+from typing import TypedDict, List, Dict
 from dotenv import load_dotenv
 
 load_dotenv()

@@ -1,19 +1,23 @@
 # IMPROVEMENTS.md
+
 ## Security Hardening & Detection Enhancements for Code Analysis Agent
 
 ### **CRITICAL SECURITY ISSUES IDENTIFIED**
 
 #### **1. Supply Chain Vulnerabilities**
+
 - **Dependency Confusion Risk**: Version ranges (`>=`) without hash pinning
 - **No Lockfile Verification**: `uv.lock` not analyzed for integrity
 - **External API Dependencies**: Unverified third-party packages with network access
 
 #### **2. Data Exfiltration Channels**
+
 - **Unrestricted External API Calls**: Suspicious terms sent to Google/Tavily without filtering
 - **No Data Sanitization**: Raw code patterns transmitted to third parties
 - **Missing Egress Controls**: No network traffic monitoring/restriction
 
 #### **3. Local Execution Risks**
+
 - **Path Traversal Vulnerabilities**: No validation on `folder_path` input
 - **Symlink Attacks**: Potential for following malicious symlinks
 - **Resource Exhaustion**: Recursive scanning without depth limits
@@ -23,6 +27,7 @@
 ### **IMMEDIATE HARDENING MEASURES**
 
 #### **1. Dependency Security**
+
 ```toml
 # Add to pyproject.toml
 [tool.security]
@@ -36,12 +41,14 @@ langchain-core = {version = "1.2.17", hash = "sha256:..."}
 ```
 
 **Implementation Steps:**
+
 1. Generate `requirements.txt` with `pip-compile --generate-hashes`
 2. Implement dependency verification in CI/CD
 3. Use private PyPI mirror with allowlisted packages
 4. Add `safety check` and `bandit` to pre-commit hooks
 
 #### **2. Network Security Controls**
+
 ```python
 # Network egress firewall
 class NetworkController:
@@ -63,12 +70,14 @@ class NetworkController:
 ```
 
 **Required Features:**
+
 - Outbound proxy with TLS inspection
 - Request/response logging with sensitive data redaction
 - Automatic API key rotation via HashiCorp Vault
 - Search query anonymization (hash-based, not plaintext)
 
 #### **3. File System Sandboxing**
+
 ```python
 import os
 import pathlib
@@ -96,6 +105,7 @@ def sandboxed_path(original_path: str) -> pathlib.Path:
 ```
 
 **Sandbox Requirements:**
+
 - Chroot/jail for analysis environment
 - Resource limits via `ulimit` or `cgroups`
 - Read-only bind mounts for source code
@@ -107,6 +117,7 @@ def sandboxed_path(original_path: str) -> pathlib.Path:
 ### **DETECTION & MONITORING IMPLEMENTATION**
 
 #### **1. Anomaly Detection Rules**
+
 ```yaml
 # detection_rules.yaml
 rules:
@@ -128,6 +139,7 @@ rules:
 ```
 
 #### **2. Audit Logging Framework**
+
 ```python
 import structlog
 from dataclasses import dataclass
@@ -161,12 +173,14 @@ class SecurityLogger:
 ```
 
 **Log Requirements:**
+
 - Immutable audit trail (WORM storage)
 - Real-time alerting via Webhooks/Slack
 - Automated report generation
 - Compliance logging (GDPR, HIPAA if applicable)
 
 #### **3. Behavioral Analysis**
+
 ```python
 class BehavioralMonitor:
     def __init__(self):
@@ -195,6 +209,7 @@ class BehavioralMonitor:
 ### **ARCHITECTURAL IMPROVEMENTS**
 
 #### **1. Zero-Trust Architecture**
+
 ```
 New Architecture:
 [User] → [API Gateway] → [Authentication] → [Policy Engine] → [Sandbox] → [Analysis Core]
@@ -203,6 +218,7 @@ New Architecture:
 ```
 
 **Components to Add:**
+
 - API Gateway with request validation
 - Mutual TLS for all internal communications
 - Service mesh for east-west traffic control
@@ -210,6 +226,7 @@ New Architecture:
 - Hardware security module (HSM) for key storage
 
 #### **2. Defense-in-Depth Layers**
+
 ```
 Layer 1: Network Segmentation
   - Separate VLAN for analysis environment
@@ -235,6 +252,7 @@ Layer 4: Data Security
 ```
 
 #### **3. Incident Response Integration**
+
 ```python
 class IncidentResponder:
     def __init__(self):
@@ -256,12 +274,14 @@ class IncidentResponder:
 ### **OPERATIONAL SECURITY CONTROLS**
 
 #### **1. Deployment Security**
+
 - **Infrastructure as Code**: Terraform with policy enforcement (Sentinel, OPA)
 - **Container Security**: Distroless images, non-root users, read-only rootfs
 - **CI/CD Pipeline**: Security gates at each stage
 - **Immutable Deployments**: No SSH access to production systems
 
 #### **2. Access Control**
+
 ```yaml
 # rbac_config.yaml
 roles:
@@ -283,6 +303,7 @@ roles:
 ```
 
 #### **3. Continuous Security Validation**
+
 ```bash
 # security_test_suite.sh
 #!/bin/bash
@@ -300,18 +321,21 @@ perform_penetration_test
 ### **COMPLIANCE & GOVERNANCE**
 
 #### **1. Policy Framework**
+
 - **Data Classification Policy**: Define sensitive data handling
 - **Acceptable Use Policy**: Authorized research activities
 - **Retention Policy**: Automatic cleanup of analysis artifacts
 - **Audit Policy**: Regular third-party security assessments
 
 #### **2. Documentation Requirements**
+
 - **Threat Model**: Updated with each major release
 - **Security Architecture**: Detailed design documents
 - **Runbooks**: Step-by-step security procedures
 - **Compliance Evidence**: Audit trails for regulatory requirements
 
 #### **3. Training & Awareness**
+
 - **Security Champions**: Dedicated team members
 - **Red Team Exercises**: Regular attack simulations
 - **Bug Bounty Program**: Incentivize external researchers
@@ -322,24 +346,28 @@ perform_penetration_test
 ### **IMPLEMENTATION PRIORITY**
 
 #### **Phase 1 (Critical - 1 week)**
+
 1. Implement network egress controls
 2. Add dependency hash pinning
 3. Deploy file system sandboxing
 4. Enable comprehensive audit logging
 
 #### **Phase 2 (High - 2 weeks)**
+
 1. Integrate secrets management
 2. Implement behavioral monitoring
 3. Deploy anomaly detection
 4. Add input validation middleware
 
 #### **Phase 3 (Medium - 1 month)**
+
 1. Containerize with security profiles
 2. Implement zero-trust architecture
 3. Deploy incident response automation
 4. Establish compliance framework
 
 #### **Phase 4 (Long-term)**
+
 1. Hardware security integration
 2. Machine learning for threat detection
 3. Cross-organization threat intelligence sharing
