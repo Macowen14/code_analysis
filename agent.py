@@ -106,6 +106,42 @@ def invoke_llm_with_fallback(messages, max_retries=2) -> str:
     return ""
 
 
+def clean_llm_response(text: str) -> str:
+    """Strip chatty LLM preamble/postamble so file output is purely content."""
+    import re
+    if not text:
+        return text
+
+    # --- Remove preamble lines (common AI throat-clearing before actual content) ---
+    preamble_pattern = re.compile(
+        r'^(?:'
+        r'(?:here\s+is|here\'s|below\s+is|below\s+you\'ll\s+find|i\'ve\s+(?:generated|created|written|prepared))'
+        r'[^\n]*|'
+        r'(?:the\s+following\s+(?:is|are|contains))[^\n]*|'
+        r'(?:sure[!,.]?[^\n]*)|'
+        r'(?:certainly[!,.]?[^\n]*)|'
+        r'(?:of\s+course[!,.]?[^\n]*)'
+        r')\n+',
+        re.IGNORECASE | re.MULTILINE,
+    )
+    text = preamble_pattern.sub('', text.lstrip())
+
+    # --- Remove postamble lines (common AI sign-offs after actual content) ---
+    postamble_pattern = re.compile(
+        r'\n+(?:'
+        r'(?:i\s+hope\s+this\s+helps?[^\n]*)|'
+        r'(?:let\s+me\s+know\s+if[^\n]*)|'
+        r'(?:feel\s+free\s+to[^\n]*)|'
+        r'(?:please\s+(?:let\s+me\s+know|feel\s+free)[^\n]*)|'
+        r'(?:if\s+you\s+(?:have|need|want)[^\n]*)'
+        r')$',
+        re.IGNORECASE | re.MULTILINE,
+    )
+    text = postamble_pattern.sub('', text.rstrip())
+
+    return text.strip()
+
+
 # ============================================================================
 # 3. Graph Nodes
 # ============================================================================
@@ -115,7 +151,8 @@ def indexer_node(state: AgentState) -> dict:
     console.print(f"[bold blue]Node 1:[/bold blue] Indexing folder '{folder_path}'...")
     sec_logger.logger.info("indexing_started", folder_path=folder_path)
 
-    if not preflight_check(folder_path):
+    preflight_ok, _ = preflight_check(folder_path)
+    if not preflight_ok:
         console.print(
             "[bold red]Preflight check failed! Found massive/dangerous files. Aborting.[/bold red]"
         )
@@ -320,7 +357,7 @@ Focus ONLY on:
                 content=f"Code Summaries:\n{summaries_text[:10000]}\n\nExternal Research Context:\n{research_context}"
             ),
         ]
-        final_docs["README.md"] = invoke_llm_with_fallback(readme_msg)
+        final_docs["README.md"] = clean_llm_response(invoke_llm_with_fallback(readme_msg))
 
         console.print("  [green]->[/green] Generating IMPROVEMENTS.md...")
         improve_msg = [
@@ -339,7 +376,7 @@ Focus ONLY on:
                 content=f"Code Summaries:\n{summaries_text[:10000]}\n\nExternal Research Context:\n{research_context}"
             ),
         ]
-        final_docs["IMPROVEMENTS.md"] = invoke_llm_with_fallback(improve_msg)
+        final_docs["IMPROVEMENTS.md"] = clean_llm_response(invoke_llm_with_fallback(improve_msg))
 
     # Generate MINDMAP.mmd
     console.print(
@@ -401,7 +438,7 @@ IMPORTANT: Use subgraphs to keep the chart readable. Group nodes horizontally, n
         SystemMessage(content=mindmap_msg_content),
         HumanMessage(content=summaries_text[:10000]),
     ]
-    mindmap_content = invoke_llm_with_fallback(mindmap_msg)
+    mindmap_content = clean_llm_response(invoke_llm_with_fallback(mindmap_msg))
 
     # Strip any backtick fencing the LLM may have added (robust multi-line strip)
     import re as _re
@@ -444,10 +481,9 @@ def router(state: AgentState) -> str:
         # It means we skipped writing because it's identical
         return END
 
-    # Very basic validation of Mermaid format
-    is_valid_mermaid = "```mermaid" in mindmap_content and (
-        "graph TD" in mindmap_content or "mindmap" in mindmap_content
-    )
+    # Very basic validation of Mermaid format.
+    # The writer already strips backtick fences, so we check for raw Mermaid keywords.
+    is_valid_mermaid = mindmap_content.strip().startswith("graph") or mindmap_content.strip().startswith("mindmap")
 
     if not is_valid_mermaid and writer_retries < 3:
         console.print(
@@ -549,5 +585,7 @@ if __name__ == "__main__":
         sys.exit(0)
     except Exception as e:
         console.print(f"\n[bold red]An unexpected error occurred: {e}[/bold red]")
-        sec_logger.logger.exception("agent_execution_failed")
+        # Use logger.error with exc_info=True; .exception() causes a duplicate
+        # 'event' kwarg conflict in some structlog versions.
+        sec_logger.logger.error("agent_execution_failed", exc_info=True)
         sys.exit(1)
