@@ -1,8 +1,7 @@
 [project]
 name = "code-analysis"
-version = "0.1.0"
+version = "0.1.1"
 description = "Add your description here"
-readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "google-search-results>=2.4.2",
@@ -12,7 +11,14 @@ dependencies = [
     "langchain-tavily>=0.2.17",
     "langgraph>=1.0.10",
     "pathspec>=1.0.4",
+    "pydantic>=2.12.5",
     "python-dotenv>=1.2.2",
     "rich>=13.0.0",
+    "structlog>=25.5.0",
     "tavily-python>=0.7.22",
 ]
+
+[tool.security]
+dependency-pinning = true
+allow-external = ["ollama.local"]
+deny-networks = ["*"]

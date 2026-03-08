@@ -46,7 +46,6 @@ langchain-core = {version = "1.2.17", hash = "sha256:..."}
 2. Implement dependency verification in CI/CD
 3. Use private PyPI mirror with allowlisted packages
 4. Add `safety check` and `bandit` to pre-commit hooks
-
 #### **2. Network Security Controls**
 
 ```python
