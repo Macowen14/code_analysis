@@ -126,7 +126,7 @@ class SecurityLogger:
         # In a real system, this would push to Slack/PagerDuty or a SIEM.
         self.logger.error(
             "security_alert_triggered",
-            event=event.value,
+            security_event=event.value,
             details=details,
             action="IMMEDIATE_INVESTIGATION_REQUIRED",
         )
